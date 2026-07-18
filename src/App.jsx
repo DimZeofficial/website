@@ -27,6 +27,7 @@ import {
   User,
   AlertCircle
 } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import './App.css';
 
 // Product Catalog
@@ -1512,6 +1513,7 @@ function App() {
           </nav>
         </div>
       </footer>
+      <Analytics />
     </div>
   );
 }
