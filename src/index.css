@@ -1710,6 +1710,24 @@ body {
   color: #eab308;
 }
 
+/* Add-on Toggle */
+.addon-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  padding: 0.5rem 0;
+}
+
+.addon-toggle-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* ====== Contact Page ====== */
 .contact-page {
   max-width: 640px;

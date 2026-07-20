@@ -82,6 +82,45 @@ const PRODUCTS = [
       { name: 'Yellow', code: '#EAB308' },
       { name: 'Black', code: '#1a1a1a' }
     ]
+  },
+  {
+    id: 3,
+    name: 'Hexagon Fidget',
+    category: 'Mechanical',
+    price: 1.50,
+    desc: 'Six-sided spin-and-click fidget with a satisfying tactile rotation. Choose your colour and add a handle for extra grip.',
+    material: 'PLA',
+    printTime: '17 mins',
+    printTimeWithHandle: '40 mins',
+    image: '/hex_flat.png',
+    images: ['/hex_flat.png', '/hex_2.png'],
+    specs: {
+      layerHeight: '0.20 mm',
+      infill: '100%',
+      weight: '5 grams',
+      dimensions: '50 x 50 x 18 mm',
+      strength: 'Medium',
+      finish: 'Matte, smooth click'
+    },
+    specsWithHandle: {
+      layerHeight: '0.20 mm',
+      infill: '15% Gyroid',
+      weight: '13 grams',
+      dimensions: '50 x 50 x 18 mm',
+      strength: 'Medium',
+      finish: 'Matte, smooth click'
+    },
+    colors: [
+      { name: 'Red', code: '#DC2626' },
+      { name: 'Green', code: '#16A34A' },
+      { name: 'Blue', code: '#2563EB' },
+      { name: 'Yellow', code: '#EAB308' },
+      { name: 'Black', code: '#1a1a1a' },
+      { name: 'White', code: '#FFFFFF' }
+    ],
+    addonOptions: [
+      { id: 'handle', label: 'Add Handle', price: 0.50, desc: 'Ergonomic grip handle attachment' }
+    ]
   }
 ];
 
@@ -127,6 +166,7 @@ function App() {
   const [detailsColor, setDetailsColor] = useState(null);
   const [topColor, setTopColor] = useState(null);
   const [bottomColor, setBottomColor] = useState(null);
+  const [handleSelected, setHandleSelected] = useState(false);
   const [selectedDetailImage, setSelectedDetailImage] = useState(0);
   
   // Track which product has the active "Get" button expanded on the catalog grid
@@ -235,6 +275,7 @@ function App() {
       setSelectedProductId(pid);
       setSelectedDetailImage(0);
       const prod = PRODUCTS.find((p) => p.id === pid);
+      setHandleSelected(false);
       if (prod && prod.partColors && prod.partColors.length > 0) {
         setTopColor(prod.partColors[0]);
         setBottomColor(prod.outerColors ? prod.outerColors[0] : prod.partColors[0]);
@@ -289,6 +330,7 @@ function App() {
     // Set default color when entering details page
     if (view === 'product-detail' && productId) {
       const prod = PRODUCTS.find((p) => p.id === productId);
+      setHandleSelected(false);
       if (prod && prod.partColors && prod.partColors.length > 0) {
         setTopColor(prod.partColors[0]);
         setBottomColor(prod.outerColors ? prod.outerColors[0] : prod.partColors[0]);
@@ -337,42 +379,40 @@ function App() {
   };
 
   // Cart operations
-  const addToCart = (product, customColor = null) => {
+  const addToCart = (product, customColor = null, addons = {}) => {
     const colorName = customColor ? customColor.name : (product.colors ? product.colors[0].name : 'Default');
     setCart((prevCart) => {
       const existing = prevCart.find(
-        (item) => item.product.id === product.id && item.color === colorName
+        (item) => item.product.id === product.id && item.color === colorName && item.addons?.handle === addons.handle
       );
       if (existing) {
         return prevCart.map((item) => 
-          item.product.id === product.id && item.color === colorName
+          item.product.id === product.id && item.color === colorName && item.addons?.handle === addons.handle
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prevCart, { product, quantity: 1, color: colorName }];
+      return [...prevCart, { product, quantity: 1, color: colorName, addons }];
     });
-    addToast(`Added ${product.name} (${colorName}) to cart`);
+    const addonLabel = addons.handle ? ' + Handle' : '';
+    addToast(`Added ${product.name} (${colorName}${addonLabel}) to cart`);
   };
 
-  const updateQuantity = (productId, colorName, amount) => {
+  const updateQuantity = (item, amount) => {
     setCart((prevCart) => {
-      return prevCart.map((item) => {
-        if (item.product.id === productId && item.color === colorName) {
-          const newQty = item.quantity + amount;
-          return newQty > 0 ? { ...item, quantity: newQty } : null;
+      return prevCart.map((ci) => {
+        if (ci.product.id === item.product.id && ci.color === item.color && ci.addons?.handle === item.addons?.handle) {
+          const newQty = ci.quantity + amount;
+          return newQty > 0 ? { ...ci, quantity: newQty } : null;
         }
-        return item;
+        return ci;
       }).filter(Boolean);
     });
   };
 
-  const removeFromCart = (productId, colorName) => {
-    const item = cart.find((i) => i.product.id === productId && i.color === colorName);
-    setCart((prevCart) => prevCart.filter((item) => !(item.product.id === productId && item.color === colorName)));
-    if (item) {
-      addToast(`Removed ${item.product.name} (${colorName}) from cart`);
-    }
+  const removeFromCart = (item) => {
+    setCart((prevCart) => prevCart.filter((ci) => !(ci.product.id === item.product.id && ci.color === item.color && ci.addons?.handle === item.addons?.handle)));
+    addToast(`Removed ${item.product.name} (${item.color}${item.addons?.handle ? ' + Handle' : ''}) from cart`);
   };
 
   // Coupons
@@ -539,7 +579,12 @@ function App() {
   };
 
   // Pricing calculations
-  const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const getItemPrice = (item) => {
+    let price = item.product.price;
+    if (item.addons?.handle) price += 0.50;
+    return price;
+  };
+  const subtotal = cart.reduce((sum, item) => sum + (getItemPrice(item) * item.quantity), 0);
   
   let shippingFee = subtotal === 0 ? 0 : 4.99;
   let discountAmount = 0;
@@ -597,6 +642,8 @@ function App() {
 
   const displaySkeleton = isPageLoading;
   const currentProduct = PRODUCTS.find((p) => p.id === selectedProductId);
+  const currentSpecs = handleSelected && currentProduct?.specsWithHandle ? currentProduct.specsWithHandle : currentProduct?.specs;
+  const currentPrintTime = handleSelected && currentProduct?.printTimeWithHandle ? currentProduct.printTimeWithHandle : currentProduct?.printTime;
 
   return (
     <div className="app-container" onClick={() => setActiveGetProductId(null)}>
@@ -916,10 +963,14 @@ function App() {
                 <div className="detail-header">
                   <span className="detail-category">{currentProduct.category}</span>
                   <h1 className="detail-title">{currentProduct.name}</h1>
-                  <div className="detail-price-box">
-                    <span className="detail-price">£{currentProduct.price.toFixed(2)} GBP</span>
-                    {currentProduct.originalPrice && (
-                      <span className="detail-original-price">£{currentProduct.originalPrice.toFixed(2)} GBP</span>
+                    <div className="detail-price-box">
+                    <span className="detail-price">
+                      £{(currentProduct.price + (handleSelected ? 0.50 : 0)).toFixed(2)} GBP
+                    </span>
+                    {currentProduct.addonOptions?.length > 0 && (
+                      <span className="detail-original-price" style={{ fontWeight: 400, fontSize: '0.8rem' }}>
+                        {handleSelected ? `Base £${currentProduct.price.toFixed(2)}` : `+£0.50 for handle`}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1029,6 +1080,27 @@ function App() {
                   </div>
                 )}
 
+                {/* Add-on Options */}
+                {currentProduct.addonOptions?.map((addon) => (
+                  <div key={addon.id} className="detail-options-group">
+                    <label className="addon-toggle-label">
+                      <input
+                        type="checkbox"
+                        checked={addon.id === 'handle' ? handleSelected : false}
+                        onChange={() => {
+                          if (addon.id === 'handle') setHandleSelected((p) => !p);
+                        }}
+                      />
+                      <span>
+                        {addon.label} — <strong>+£{addon.price.toFixed(2)}</strong>
+                      </span>
+                    </label>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      {addon.desc}
+                    </span>
+                  </div>
+                ))}
+
                 {/* Technical Specifications details table */}
                 <div className="detail-options-group">
                   <span className="option-title">Technical Specifications</span>
@@ -1040,27 +1112,27 @@ function App() {
                       </tr>
                       <tr>
                         <td className="tech-spec-label">Fabrication Time</td>
-                        <td className="tech-spec-val">{currentProduct.printTime}</td>
+                        <td className="tech-spec-val">{currentPrintTime}</td>
                       </tr>
                       <tr>
                         <td className="tech-spec-label">Layer Resolution</td>
-                        <td className="tech-spec-val">{currentProduct.specs.layerHeight}</td>
+                        <td className="tech-spec-val">{currentSpecs.layerHeight}</td>
                       </tr>
                       <tr>
                         <td className="tech-spec-label">Infill Density</td>
-                        <td className="tech-spec-val">{currentProduct.specs.infill}</td>
+                        <td className="tech-spec-val">{currentSpecs.infill}</td>
                       </tr>
                       <tr>
                         <td className="tech-spec-label">Part Weight</td>
-                        <td className="tech-spec-val">{currentProduct.specs.weight}</td>
+                        <td className="tech-spec-val">{currentSpecs.weight}</td>
                       </tr>
                       <tr>
                         <td className="tech-spec-label">Bounding Dimensions</td>
-                        <td className="tech-spec-val">{currentProduct.specs.dimensions}</td>
+                        <td className="tech-spec-val">{currentSpecs.dimensions}</td>
                       </tr>
                       <tr>
                         <td className="tech-spec-label">Extrusion Finish</td>
-                        <td className="tech-spec-val">{currentProduct.specs.finish}</td>
+                        <td className="tech-spec-val">{currentSpecs.finish}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1071,11 +1143,11 @@ function App() {
                     className="submit-order-btn" 
                     onClick={() => {
                       if (currentProduct.outerColors) {
-                        addToCart(currentProduct, { name: `${topColor?.name} / ${bottomColor?.name} Outer` });
+                        addToCart(currentProduct, { name: `${topColor?.name} / ${bottomColor?.name} Outer` }, { handle: handleSelected });
                       } else if (currentProduct.partColors) {
-                        addToCart(currentProduct, { name: `${topColor?.name} (Top) / ${bottomColor?.name} (Bottom)` });
+                        addToCart(currentProduct, { name: `${topColor?.name} (Top) / ${bottomColor?.name} (Bottom)` }, { handle: handleSelected });
                       } else {
-                        addToCart(currentProduct, detailsColor);
+                        addToCart(currentProduct, detailsColor, { handle: handleSelected });
                       }
                     }}
                     style={{ maxWidth: '320px' }}
@@ -1132,21 +1204,21 @@ function App() {
                           <div className="cart-item-details">
                             <span className="cart-item-name">{item.product.name}</span>
                             <span className="cart-item-meta">
-                              {item.color} • {item.product.material}
+                              {item.color}{item.addons?.handle ? ' + Handle' : ''} • {item.product.material}
                             </span>
-                            <span className="cart-item-price">£{item.product.price.toFixed(2)}</span>
+                            <span className="cart-item-price">£{getItemPrice(item).toFixed(2)}</span>
                             
                             <div className="cart-item-actions">
                               <div className="quantity-controller">
-                                <button className="quantity-btn" onClick={() => updateQuantity(item.product.id, item.color, -1)}>
+                                <button className="quantity-btn" onClick={() => updateQuantity(item, -1)}>
                                   <Minus size={12} />
                                 </button>
                                 <span className="quantity-val">{item.quantity}</span>
-                                <button className="quantity-btn" onClick={() => updateQuantity(item.product.id, item.color, 1)}>
+                                <button className="quantity-btn" onClick={() => updateQuantity(item, 1)}>
                                   <Plus size={12} />
                                 </button>
                               </div>
-                              <button className="delete-item-btn" onClick={() => removeFromCart(item.product.id, item.color)}>
+                              <button className="delete-item-btn" onClick={() => removeFromCart(item)}>
                                 <Trash2 size={14} />
                               </button>
                             </div>
