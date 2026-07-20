@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShoppingBag, 
   Sun, 
   Moon, 
   Search, 
-  MessageSquare, 
-  Send, 
   Trash2, 
   Plus, 
   Minus, 
@@ -19,14 +17,13 @@ import {
   ChevronLeft,
   ShieldCheck,
   Tag,
-  ArrowRight,
-  HelpCircle,
   FileText,
   Maximize2,
-  Mail,
-  User,
   AlertCircle
 } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
+import CookieConsent from './components/CookieConsent.jsx';
+import PrivacyPolicy from './components/PrivacyPolicy.jsx';
 import './App.css';
 
 // Product Catalog
@@ -38,38 +35,42 @@ const PRODUCTS = [
     price: 2.00,
     desc: 'Stackable poker chip fidget toy with a satisfying click action between each chip. A portable desk toy you can fidget with one-handed.',
     material: 'PLA',
-    printTime: '2h 00m',
+    printTime: '2h 24m',
     image: '/poker_chips.png',
     images: ['/poker_chips.png'],
     specs: {
       layerHeight: '0.20 mm',
-      infill: '25% Cubic',
-      weight: '40 grams',
+      infill: '100% Cubic',
+      weight: '34 grams',
       dimensions: '60 x 60 x 12 mm',
       strength: 'Medium',
       finish: 'Matte, smooth click'
     },
-    colors: [
+    partColors: [
       { name: 'Red', code: '#DC2626' },
       { name: 'Green', code: '#16A34A' },
       { name: 'Blue', code: '#2563EB' },
       { name: 'Yellow', code: '#EAB308' }
+    ],
+    outerColors: [
+      { name: 'White', code: '#FFFFFF' },
+      { name: 'Black', code: '#1a1a1a' }
     ]
   },
   {
-    id: 7,
+    id: 2,
     name: 'Spiral Fidget',
     category: 'Mechanical',
     price: 3.00,
     desc: 'Two-piece print-in-place spiral fidget toy. Smooth rotating action between the top and bottom sections. Choose your own top and bottom colour combo.',
     material: 'PLA',
-    printTime: '1h 45m',
+    printTime: '1h 12m',
     image: '/spiral_full.png',
     images: ['/spiral_full.png', '/spiral_upside.png', '/spiral_parts.png'],
     specs: {
       layerHeight: '0.20 mm',
-      infill: '20% Gyroid',
-      weight: '35 grams',
+      infill: '0%',
+      weight: '14 grams',
       dimensions: '55 x 55 x 40 mm',
       strength: 'Medium',
       finish: 'Matte, smooth rotation'
@@ -84,14 +85,6 @@ const PRODUCTS = [
   }
 ];
 
-// Presets for the Messaging Widget
-const FAQ_RESPONSES = {
-  "Can I customize the print size?": "Absolutely! For custom sizes, please message us your requirements. We can scale our designs from 10% to 400% of their original size depending on print volume.",
-  "What materials do you use?": "We print with premium, eco-friendly Matte PLA, Recycled PETG, Tough ABS, and Carbon Fiber PLA. PLA is perfect for decorative items, while PETG/ABS/Carbon Fiber are great for functional parts.",
-  "Do you offer bulk discounts?": "Yes! We offer a 15% discount for bulk orders of 10+ identical items, and 25% for 50+. Please submit a request via our email: bulk@polycraft3d.com.",
-  "What is the average print time?": "Print times vary based on item size and complexity. Small gears take 2-4 hours, while complex designs like our Headphone Stand take up to 12 hours. Orders typically ship within 2-3 business days."
-};
-
 // Available Coupons
 const COUPONS = {
   'PRINT10': { code: 'PRINT10', type: 'percent', value: 10, label: '10% OFF prints' },
@@ -99,6 +92,15 @@ const COUPONS = {
   'FREESHIP': { code: 'FREESHIP', type: 'shipping', value: 4.99, label: 'Free Shipping' }
 };
 
+
+const loadFromStorage = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 function App() {
   // Theme State
@@ -118,7 +120,7 @@ function App() {
   const [isPageLoading, setIsPageLoading] = useState(false);
   
   // Cart State
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => loadFromStorage('cart', []));
   const [isCartOpen, setIsCartOpen] = useState(false);
   
   // Selected configuration on details page
@@ -136,37 +138,36 @@ function App() {
   const [promoFeedback, setPromoFeedback] = useState({ message: '', type: '' });
   
   // Checkout State
-  const [checkoutStep, setCheckoutStep] = useState('cart'); // 'cart' | 'checkout' | 'success'
-  const [checkoutForm, setCheckoutForm] = useState({
-    email: '',
-    birthdate: '',
-    fullName: '',
-    phone: '',
-    address: '',
-    cardNumber: '',
-    cardExpiry: '',
-    cardCvv: ''
+  const [checkoutStep, setCheckoutStep] = useState('cart');
+  const [saveInfo, setSaveInfo] = useState(() => !!localStorage.getItem('savedCheckoutInfo'));
+  const [checkoutForm, setCheckoutForm] = useState(() => {
+    const saved = loadFromStorage('savedCheckoutInfo', null);
+    return saved || {
+      email: '',
+      birthdate: '',
+      fullName: '',
+      phone: '',
+      address: '',
+      cardNumber: '',
+      cardExpiry: '',
+      cardCvv: ''
+    };
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [completedOrder, setCompletedOrder] = useState(null);
 
-  // Custom Contact Form State
-  const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
-  const [contactSubmitted, setContactSubmitted] = useState(false);
-
-  // Chat State
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, sender: 'bot', text: "Hi there! I'm PolyBot. Let me know if you have any questions about filaments, print times, or custom orders." }
-  ]);
-  const [chatInput, setChatInput] = useState('');
-  const [isChatTyping, setIsChatTyping] = useState(false);
-  
   // Toasts State
   const [toasts, setToasts] = useState([]);
+  
+  // Cookie Consent State
+  const [cookieConsent, setCookieConsent] = useState(() => localStorage.getItem('cookie_consent_v1'));
+  const [showCookieBanner, setShowCookieBanner] = useState(() => !localStorage.getItem('cookie_consent_v1'));
+  
+  // Contact Form State
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactStatus, setContactStatus] = useState(null);
 
-  const chatEndRef = useRef(null);
 
   // Search placeholders rotation
   const placeholders = [
@@ -189,12 +190,82 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Scroll chat window to bottom
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  // Navigate from URL path
+  const navigateFromPath = (path) => {
+    setIsPageLoading(true);
+    setIsCartOpen(false);
+
+    if (path === '/cart') {
+      setIsCartOpen(true);
+      setCheckoutStep('cart');
+      setCurrentView('catalog');
+      setSelectedProductId(null);
+      setIsPageLoading(false);
+      return;
     }
-  }, [chatMessages, isChatTyping]);
+
+    if (path === '/checkout') {
+      setIsCartOpen(true);
+      setCheckoutStep('checkout');
+      setCurrentView('catalog');
+      setSelectedProductId(null);
+      setIsPageLoading(false);
+      return;
+    }
+
+    if (path === '/contact') {
+      setCurrentView('contact');
+      setSelectedProductId(null);
+      setIsPageLoading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (path === '/privacy-policy') {
+      setCurrentView('privacy-policy');
+      setSelectedProductId(null);
+      setIsPageLoading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const productMatch = path.match(/^\/product\/(\d+)$/);
+    if (productMatch) {
+      const pid = parseInt(productMatch[1]);
+      setCurrentView('product-detail');
+      setSelectedProductId(pid);
+      setSelectedDetailImage(0);
+      const prod = PRODUCTS.find((p) => p.id === pid);
+      if (prod && prod.partColors && prod.partColors.length > 0) {
+        setTopColor(prod.partColors[0]);
+        setBottomColor(prod.outerColors ? prod.outerColors[0] : prod.partColors[0]);
+        setDetailsColor(null);
+      } else if (prod && prod.colors && prod.colors.length > 0) {
+        setDetailsColor(prod.colors[0]);
+        setTopColor(null);
+        setBottomColor(null);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => setIsPageLoading(false), 600);
+      return;
+    }
+
+    setCurrentView('catalog');
+    setSelectedProductId(null);
+    setIsPageLoading(false);
+  };
+
+  // Initialize from URL
+  useEffect(() => {
+    navigateFromPath(window.location.pathname);
+  }, []);
+
+  // Listen for browser back/forward
+  useEffect(() => {
+    const onPop = () => navigateFromPath(window.location.pathname);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // Trigger simulated page loading skeletons when page views change
   const navigateTo = (view, productId = null) => {
@@ -203,12 +274,25 @@ function App() {
     setSelectedProductId(productId);
     setSelectedDetailImage(0);
     
+    // Update URL
+    let url;
+    if (view === 'product-detail' && productId) {
+      url = `/product/${productId}`;
+    } else if (view === 'contact') {
+      url = '/contact';
+    } else if (view === 'privacy-policy') {
+      url = '/privacy-policy';
+    } else {
+      url = '/';
+    }
+    window.history.pushState({}, '', url);
+    
     // Set default color when entering details page
     if (view === 'product-detail' && productId) {
       const prod = PRODUCTS.find((p) => p.id === productId);
       if (prod && prod.partColors && prod.partColors.length > 0) {
         setTopColor(prod.partColors[0]);
-        setBottomColor(prod.partColors[0]);
+        setBottomColor(prod.outerColors ? prod.outerColors[0] : prod.partColors[0]);
         setDetailsColor(null);
       } else if (prod && prod.colors && prod.colors.length > 0) {
         setDetailsColor(prod.colors[0]);
@@ -223,6 +307,11 @@ function App() {
       setIsPageLoading(false);
     }, 600); // 600ms page loading duration
   };
+
+  // Persist cart to localStorage
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
 
   // Trigger brief skeleton loading on search and filters
   useEffect(() => {
@@ -312,6 +401,61 @@ function App() {
     setPromoFeedback({ message: '', type: '' });
     setPromoInput('');
     addToast('Coupon code removed');
+  };
+
+  // Contact Form Submission (rate-limited proxy)
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    setContactSubmitting(true);
+    setContactStatus(null);
+
+    const form = e.target;
+    const data = {
+      name: form.name.value,
+      email: form.email.value,
+      message: form.message.value,
+    };
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        setContactStatus({ type: 'success', message: 'Message sent successfully! We will get back to you soon.' });
+        form.reset();
+      } else if (res.status === 429) {
+        const err = await res.json();
+        setContactStatus({ type: 'error', message: err.error });
+      } else {
+        setContactStatus({ type: 'error', message: 'Failed to send message. Please try again.' });
+      }
+    } catch {
+      setContactStatus({ type: 'error', message: 'Network error. Please check your connection.' });
+    } finally {
+      setContactSubmitting(false);
+    }
+  };
+
+  // Cookie Consent Handlers
+  const handleCookieAccept = () => {
+    localStorage.setItem('cookie_consent_v1', 'accepted');
+    setCookieConsent('accepted');
+    setShowCookieBanner(false);
+  };
+
+  const handleCookieReject = () => {
+    localStorage.setItem('cookie_consent_v1', 'rejected');
+    setCookieConsent('rejected');
+    setShowCookieBanner(false);
+  };
+
+  const handleCookiePreferences = () => {
+    localStorage.removeItem('cookie_consent_v1');
+    setCookieConsent(null);
+    setShowCookieBanner(true);
   };
 
   // Form Masking Helpers
@@ -439,72 +583,13 @@ function App() {
       setAppliedCoupon(null);
       setPromoInput('');
       setPromoFeedback({ message: '', type: '' });
+      if (saveInfo) {
+        localStorage.setItem('savedCheckoutInfo', JSON.stringify(checkoutForm));
+      } else {
+        localStorage.removeItem('savedCheckoutInfo');
+      }
       addToast('Order placed successfully!');
     }, 1500);
-  };
-
-  // Contact Form Submission
-  const handleContactSubmit = (e) => {
-    e.preventDefault();
-    if (!contactForm.name || !contactForm.email || !contactForm.message) {
-      addToast('Please fill all fields');
-      return;
-    }
-    setContactSubmitted(true);
-    addToast('Message sent to print support desk');
-    setTimeout(() => {
-      setActiveFooterModal(null);
-      setContactSubmitted(false);
-      setContactForm({ name: '', email: '', message: '' });
-    }, 2000);
-  };
-
-  // Messaging / Chat Widget FAQs
-  const triggerFAQQuestion = (questionText) => {
-    const userMsg = { id: Date.now(), sender: 'user', text: questionText };
-    setChatMessages((prev) => [...prev, userMsg]);
-    setIsChatTyping(true);
-
-    setTimeout(() => {
-      setIsChatTyping(false);
-      const answer = FAQ_RESPONSES[questionText] || "I don't have details on that. Our custom print desk will mail you details shortly.";
-      setChatMessages((prev) => [
-        ...prev, 
-        { id: Date.now() + 1, sender: 'bot', text: answer }
-      ]);
-    }, 800);
-  };
-
-  const handleSendCustomMessage = (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    const userMsg = { id: Date.now(), sender: 'user', text: chatInput };
-    setChatMessages((prev) => [...prev, userMsg]);
-    const typedQuery = chatInput;
-    setChatInput('');
-    setIsChatTyping(true);
-
-    setTimeout(() => {
-      setIsChatTyping(false);
-      let reply = "Thank you for asking! A specialist from our print team has been notified and will message you back here shortly. We normally respond within 15 minutes.";
-      
-      const lowerQuery = typedQuery.toLowerCase();
-      if (lowerQuery.includes('pla') || lowerQuery.includes('filament') || lowerQuery.includes('material')) {
-        reply = FAQ_RESPONSES["What materials do you use?"];
-      } else if (lowerQuery.includes('custom') || lowerQuery.includes('size') || lowerQuery.includes('scale')) {
-        reply = FAQ_RESPONSES["Can I customize the print size?"];
-      } else if (lowerQuery.includes('bulk') || lowerQuery.includes('discount') || lowerQuery.includes('large order')) {
-        reply = FAQ_RESPONSES["Do you offer bulk discounts?"];
-      } else if (lowerQuery.includes('time') || lowerQuery.includes('long') || lowerQuery.includes('ship')) {
-        reply = FAQ_RESPONSES["What is the average print time?"];
-      }
-
-      setChatMessages((prev) => [
-        ...prev,
-        { id: Date.now() + 1, sender: 'bot', text: reply }
-      ]);
-    }, 1000);
   };
 
   // Filter Catalog Items
@@ -537,10 +622,10 @@ function App() {
           <button 
             className="logo-section" 
             onClick={() => navigateTo('catalog')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
           >
-            <Layers className="logo-icon" size={24} strokeWidth={2.5} />
-            <span className="logo-text">PolyCraft 3D</span>
+            <img src="/logo.png" alt="Ed's 3D Prints" className="site-logo" />
+            <span className="logo-text">Ed's 3D Prints</span>
           </button>
 
           {/* Search bar with dynamic placeholders */}
@@ -584,7 +669,7 @@ function App() {
             {/* Cart drawer toggle */}
             <button 
               className="action-btn" 
-              onClick={() => { setIsCartOpen(true); setCheckoutStep('cart'); }}
+              onClick={() => { window.history.pushState({}, '', '/cart'); setIsCartOpen(true); setCheckoutStep('cart'); }}
               aria-label="Open shopping cart"
               title="Open cart"
             >
@@ -600,27 +685,43 @@ function App() {
       </header>
 
       {/* Main Body */}
-      {currentView === 'catalog' ? (
+      {currentView === 'privacy-policy' ? (
+        <PrivacyPolicy onNavigate={navigateTo} />
+      ) : currentView === 'contact' ? (
+        <main className="contact-page">
+          <h1 className="contact-page-title">Contact Support Desk</h1>
+          <p className="contact-page-desc">Have custom STL files or need help with a bulk order? Leave a message and our technicians will assist you.</p>
+          <form onSubmit={handleContactSubmit} className="contact-form">
+            <div className="form-group">
+              <label className="form-label">Name</label>
+              <input type="text" name="name" className="form-input" required placeholder="Your Name" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <input type="email" name="email" className="form-input" required placeholder="you@domain.com" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Message Requirements</label>
+              <textarea name="message" className="form-input" rows={5} required placeholder="Include link to your CAD file, scaling desires, and material choice..." style={{ resize: 'vertical' }} />
+            </div>
+            <button type="submit" className="submit-order-btn" style={{ maxWidth: '320px' }} disabled={contactSubmitting}>
+              {contactSubmitting ? 'Sending...' : 'Send Support Query'}
+            </button>
+            {contactStatus && (
+              <div className={`contact-status ${contactStatus.type}`}>
+                {contactStatus.message}
+              </div>
+            )}
+          </form>
+        </main>
+      ) : currentView === 'catalog' ? (
         <>
           {/* Hero Banner (Catalog view only) */}
           <section className="hero-banner">
             <div className="hero-content">
-              <p className="hero-subtitle">Premium Custom Fabrication</p>
-              <h1 className="hero-title">Minimalist, engineered 3D objects printed to perfection.</h1>
-              <p className="hero-description">
-                High precision layer lines. Low-saturation materials. Clean industrial engineering for your desktop and home setup.
-              </p>
-              <div className="hero-badges">
-                <span className="badge">
-                  <Clock size={14} /> 2-Day Dispatch
-                </span>
-                <span className="badge">
-                  <Layers size={14} /> 0.16mm Layer Height
-                </span>
-                <span className="badge">
-                  <CheckCircle2 size={14} /> Checked by hand
-                </span>
-              </div>
+              <p className="hero-subtitle">Custom 3D Prints</p>
+              <h1 className="hero-title">Clean, simple and affordable 3D printed items.</h1>
+
             </div>
           </section>
 
@@ -782,17 +883,22 @@ function App() {
               {/* Product Image with arrows */}
               <div className="detail-gallery">
                 <div className="detail-image-panel" style={{ position: 'relative' }}>
-                  <div className="image-slide-track" style={{ transform: `translateX(-${selectedDetailImage * 100}%)` }}>
-                    {(currentProduct.images || [currentProduct.image]).map((src, i) => (
-                      <img 
-                        key={i}
-                        src={src} 
-                        alt={currentProduct.name} 
-                        className="detail-image" 
-                      />
-                    ))}
-                  </div>
-                  {currentProduct.images && currentProduct.images.length > 1 && (
+                  {currentProduct.outerColors && topColor && bottomColor ? (
+                    <img 
+                      key={`${topColor.name}-${bottomColor.name}`}
+                      src={`/poker_chips_${topColor.name[0].toLowerCase()}${bottomColor.name === 'Black' ? '_b' : ''}.png`}
+                      alt={`${currentProduct.name} - ${topColor.name}, ${bottomColor.name} outer`} 
+                      className="detail-image" 
+                    />
+                  ) : (
+                    <img 
+                      key={selectedDetailImage}
+                      src={(currentProduct.images || [currentProduct.image])[selectedDetailImage]} 
+                      alt={currentProduct.name} 
+                      className="detail-image" 
+                    />
+                  )}
+                  {!currentProduct.outerColors && currentProduct.images && currentProduct.images.length > 1 && (
                     <>
                       <button 
                         className="gallery-arrow gallery-arrow-left"
@@ -826,7 +932,89 @@ function App() {
 
                 <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>{currentProduct.desc}</p>
 
-                {/* Colour Picker */}
+                {/* Top/Bottom Part Colour Pickers */}
+                {currentProduct.partColors && !currentProduct.outerColors && (
+                  <>
+                    <div className="detail-options-group">
+                      <span className="option-title">Top Part Colour</span>
+                      <div className="color-dots-row">
+                        {currentProduct.partColors.map((color, index) => (
+                          <button
+                            key={index}
+                            className={`color-picker-dot ${topColor?.name === color.name ? 'active' : ''}`}
+                            style={{ backgroundColor: color.code }}
+                            onClick={() => setTopColor(color)}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Selected: <b>{topColor?.name}</b>
+                      </span>
+                    </div>
+
+                    <div className="detail-options-group">
+                      <span className="option-title">Bottom Part Colour</span>
+                      <div className="color-dots-row">
+                        {currentProduct.partColors.map((color, index) => (
+                          <button
+                            key={index}
+                            className={`color-picker-dot ${bottomColor?.name === color.name ? 'active' : ''}`}
+                            style={{ backgroundColor: color.code }}
+                            onClick={() => setBottomColor(color)}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Selected: <b>{bottomColor?.name}</b>
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* Inner/Outer Colour Pickers (Poker Chips) */}
+                {currentProduct.partColors && currentProduct.outerColors && (
+                  <>
+                    <div className="detail-options-group">
+                      <span className="option-title">Inner Colour</span>
+                      <div className="color-dots-row">
+                        {currentProduct.partColors.map((color, index) => (
+                          <button
+                            key={index}
+                            className={`color-picker-dot ${topColor?.name === color.name ? 'active' : ''}`}
+                            style={{ backgroundColor: color.code }}
+                            onClick={() => setTopColor(color)}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Selected: <b>{topColor?.name}</b>
+                      </span>
+                    </div>
+
+                    <div className="detail-options-group">
+                      <span className="option-title">Outer Ring</span>
+                      <div className="color-dots-row">
+                        {currentProduct.outerColors.map((color, index) => (
+                          <button
+                            key={index}
+                            className={`color-picker-dot ${bottomColor?.name === color.name ? 'active' : ''}`}
+                            style={{ backgroundColor: color.code }}
+                            onClick={() => setBottomColor(color)}
+                            title={color.name}
+                          />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Selected: <b>{bottomColor?.name}</b>
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* Single Colour Picker */}
                 {currentProduct.colors && !currentProduct.partColors && (
                   <div className="detail-options-group">
                     <span className="option-title">Select Colorway</span>
@@ -888,7 +1076,9 @@ function App() {
                   <button 
                     className="submit-order-btn" 
                     onClick={() => {
-                      if (currentProduct.partColors) {
+                      if (currentProduct.outerColors) {
+                        addToCart(currentProduct, { name: `${topColor?.name} / ${bottomColor?.name} Outer` });
+                      } else if (currentProduct.partColors) {
                         addToCart(currentProduct, { name: `${topColor?.name} (Top) / ${bottomColor?.name} (Bottom)` });
                       } else {
                         addToCart(currentProduct, detailsColor);
@@ -914,7 +1104,7 @@ function App() {
       )}
 
       {/* Cart Side Drawer Overlay Backdrop */}
-      <div className={`drawer-backdrop ${isCartOpen ? 'open' : ''}`} onClick={() => setIsCartOpen(false)}>
+      <div className={`drawer-backdrop ${isCartOpen ? 'open' : ''}`} onClick={() => { window.history.pushState({}, '', '/'); setIsCartOpen(false); }}>
         {/* Drawer Panel */}
         <div className="drawer-panel" onClick={(e) => e.stopPropagation()}>
           <header className="drawer-header">
@@ -922,7 +1112,7 @@ function App() {
               <ShoppingBag size={20} />
               <span>Shopping Cart</span>
             </h2>
-            <button className="close-btn" onClick={() => setIsCartOpen(false)} aria-label="Close drawer">
+            <button className="close-btn" onClick={() => { window.history.pushState({}, '', '/'); setIsCartOpen(false); }} aria-label="Close drawer">
               <X size={20} />
             </button>
           </header>
@@ -1041,7 +1231,7 @@ function App() {
 
                     <button 
                       className="submit-order-btn" 
-                      onClick={() => setCheckoutStep('checkout')}
+                      onClick={() => { window.history.pushState({}, '', '/checkout'); setCheckoutStep('checkout'); }}
                       style={{ marginTop: '0.5rem' }}
                     >
                       <Lock size={16} />
@@ -1057,7 +1247,7 @@ function App() {
               <form className="checkout-section" onSubmit={handlePlaceOrder}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 className="checkout-title">1. Account Details</h3>
-                  <button type="button" className="close-btn" style={{ fontSize: '0.75rem' }} onClick={() => setCheckoutStep('cart')}>
+                  <button type="button" className="close-btn" style={{ fontSize: '0.75rem' }} onClick={() => { window.history.pushState({}, '', '/cart'); setCheckoutStep('cart'); }}>
                     ← Back to Cart
                   </button>
                 </div>
@@ -1170,6 +1360,11 @@ function App() {
                   </div>
                 </div>
 
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', cursor: 'pointer', marginTop: '0.25rem' }}>
+                  <input type="checkbox" checked={saveInfo} onChange={() => setSaveInfo((p) => !p)} />
+                  Save my details for next time
+                </label>
+
                 <button 
                   type="submit" 
                   className="submit-order-btn" 
@@ -1229,7 +1424,7 @@ function App() {
 
                 <button 
                   className="product-add-btn" 
-                  onClick={() => { setIsCartOpen(false); setCheckoutStep('cart'); }}
+                  onClick={() => { window.history.pushState({}, '', '/'); setIsCartOpen(false); setCheckoutStep('cart'); }}
                 >
                   Continue Shopping
                 </button>
@@ -1239,79 +1434,16 @@ function App() {
         </div>
       </div>
 
-      {/* Floating Messaging / Ask Questions Widget */}
-      <div className="chat-container">
-        <div className={`chat-window ${isChatOpen ? 'open' : ''}`}>
-          <header className="chat-header">
-            <div className="chat-bot-profile">
-              <span className="chat-status-dot"></span>
-              <div>
-                <h3 className="chat-title">PolyCraft Print Desk</h3>
-                <p className="chat-subtitle">Automated Support • Online</p>
-              </div>
-            </div>
-            <button className="close-btn" onClick={() => setIsChatOpen(false)} aria-label="Minimize chat">
-              <X size={16} />
-            </button>
-          </header>
+      {/* Vercel Analytics — only activated when cookie consent is given */}
+      {cookieConsent === 'accepted' && <Analytics />}
 
-          <div className="chat-messages">
-            {chatMessages.map((msg) => (
-              <div key={msg.id} className={`message-bubble ${msg.sender}`}>
-                {msg.text}
-              </div>
-            ))}
-            
-            {isChatTyping && (
-              <div className="message-bubble bot" style={{ display: 'flex', alignItems: 'center' }}>
-                <div className="typing-indicator">
-                  <span className="typing-dot"></span>
-                  <span className="typing-dot"></span>
-                  <span className="typing-dot"></span>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Quick FAQs */}
-          <div className="chat-quick-replies">
-            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.1rem' }}>Frequently Asked:</span>
-            {Object.keys(FAQ_RESPONSES).map((q, idx) => (
-              <button
-                key={idx}
-                className="quick-reply-btn"
-                onClick={() => triggerFAQQuestion(q)}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-
-          <form className="chat-input-area" onSubmit={handleSendCustomMessage}>
-            <input
-              type="text"
-              className="chat-input"
-              placeholder="Ask a question..."
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-            />
-            <button type="submit" className="chat-send-btn" aria-label="Send message">
-              <Send size={14} />
-            </button>
-          </form>
-        </div>
-
-        {/* Floating Green Circle Trigger */}
-        <button 
-          className={`chat-trigger ${isChatOpen ? 'open' : ''}`}
-          onClick={() => setIsChatOpen(!isChatOpen)}
-          aria-label="Open support desk questions chat"
-          title="Ask a question"
-        >
-          {isChatOpen ? <X size={22} /> : <MessageSquare size={22} />}
-        </button>
-      </div>
+      {/* Cookie Consent Banner — shown until user accepts or rejects */}
+      <CookieConsent
+        visible={showCookieBanner}
+        onAccept={handleCookieAccept}
+        onReject={handleCookieReject}
+        onPrivacy={() => navigateTo('privacy-policy')}
+      />
 
       {/* Interactive Footer Modal Overlays */}
       <div className={`modal-backdrop ${activeFooterModal ? 'open' : ''}`} onClick={() => setActiveFooterModal(null)}>
@@ -1321,12 +1453,10 @@ function App() {
               {activeFooterModal === 'filament' && <Layers size={18} className="logo-icon" />}
               {activeFooterModal === 'sizing' && <Maximize2 size={18} className="logo-icon" />}
               {activeFooterModal === 'terms' && <FileText size={18} className="logo-icon" />}
-              {activeFooterModal === 'contact' && <Mail size={18} className="logo-icon" />}
               <span>
-                {activeFooterModal === 'filament' && 'PolyCraft Filament Guide'}
+                {activeFooterModal === 'filament' && "Ed's 3D Prints Filament Guide"}
                 {activeFooterModal === 'sizing' && 'Scaling & Dimensions Guide'}
                 {activeFooterModal === 'terms' && 'Terms of Custom Service'}
-                {activeFooterModal === 'contact' && 'Contact Support Desk'}
               </span>
             </h3>
             <button className="close-btn" onClick={() => setActiveFooterModal(null)}>
@@ -1432,60 +1562,7 @@ function App() {
               </>
             )}
 
-            {activeFooterModal === 'contact' && (
-              <>
-                {contactSubmitted ? (
-                  <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-                    <div className="success-icon-wrap" style={{ display: 'inline-flex', marginBottom: '1rem' }}>
-                      <CheckCircle2 size={32} />
-                    </div>
-                    <h4>Message Received</h4>
-                    <p>We will get back to you within 24 hours.</p>
-                  </div>
-                ) : (
-                  <form onSubmit={handleContactSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <p>Have custom STL files or need help with a bulk order? Leave a message and our technicians will assist you.</p>
-                    <div className="form-group">
-                      <label className="form-label">Name</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        required
-                        value={contactForm.name}
-                        onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                        placeholder="Your Name"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Email Address</label>
-                      <input
-                        type="email"
-                        className="form-input"
-                        required
-                        value={contactForm.email}
-                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                        placeholder="you@domain.com"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Message Requirements</label>
-                      <textarea
-                        className="form-input"
-                        rows={4}
-                        required
-                        value={contactForm.message}
-                        onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                        placeholder="Include link to your CAD file, scaling desires, and material choice..."
-                        style={{ resize: 'vertical' }}
-                      />
-                    </div>
-                    <button type="submit" className="submit-order-btn">
-                      Send Support Query
-                    </button>
-                  </form>
-                )}
-              </>
-            )}
+
           </div>
         </div>
       </div>
@@ -1494,7 +1571,7 @@ function App() {
       <footer className="site-footer">
         <div className="footer-inner">
           <p className="footer-text">
-            © {new Date().getFullYear()} PolyCraft 3D Ltd. Clean geometric engineering files fabricated on-demand.
+            © {new Date().getFullYear()} Ed's 3D Prints. Clean geometric engineering files fabricated on-demand.
           </p>
           <nav className="footer-links" aria-label="Footer Navigation">
             <button className="footer-link" onClick={() => setActiveFooterModal('filament')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -1506,7 +1583,13 @@ function App() {
             <button className="footer-link" onClick={() => setActiveFooterModal('terms')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
               Terms of service
             </button>
-            <button className="footer-link" onClick={() => setActiveFooterModal('contact')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <button className="footer-link" onClick={() => navigateTo('privacy-policy')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+              Privacy Policy
+            </button>
+            <button className="footer-link" onClick={handleCookiePreferences} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+              Cookie Preferences
+            </button>
+            <button className="footer-link" onClick={() => navigateTo('contact')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
               Contact
             </button>
           </nav>
