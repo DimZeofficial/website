@@ -139,7 +139,6 @@ function App() {
   
   // Checkout State
   const [checkoutStep, setCheckoutStep] = useState('cart');
-  const [saveInfo, setSaveInfo] = useState(() => !!localStorage.getItem('savedCheckoutInfo'));
   const [checkoutForm, setCheckoutForm] = useState(() => {
     const saved = loadFromStorage('savedCheckoutInfo', null);
     return saved || {
@@ -583,11 +582,6 @@ function App() {
       setAppliedCoupon(null);
       setPromoInput('');
       setPromoFeedback({ message: '', type: '' });
-      if (saveInfo) {
-        localStorage.setItem('savedCheckoutInfo', JSON.stringify(checkoutForm));
-      } else {
-        localStorage.removeItem('savedCheckoutInfo');
-      }
       addToast('Order placed successfully!');
     }, 1500);
   };

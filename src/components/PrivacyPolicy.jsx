@@ -32,11 +32,8 @@ export default function PrivacyPolicy({ onNavigate }) {
 
         <h3>Order Checkout</h3>
         <p>
-          When you place an order, you provide your email, full name, phone number, shipping
-          address, and birthdate. Card payment fields (number, expiry, CVV) are handled
-          client-side for display purposes only and are never transmitted to our servers or
-          any payment processor. Order summary data is stored temporarily in your browser&apos;s
-          localStorage.
+          When you place a mock order, order details are held temporarily in memory during your session
+          to process the order demonstration. Payment details are not stored or transmitted to any server.
         </p>
 
         <h3>Automatically Collected Data</h3>
@@ -56,7 +53,6 @@ export default function PrivacyPolicy({ onNavigate }) {
         <ul>
           <li><strong>localStorage (theme)</strong> — Remembers your light/dark mode preference.</li>
           <li><strong>localStorage (cart)</strong> — Persists your shopping cart contents between sessions.</li>
-          <li><strong>localStorage (savedCheckoutInfo)</strong> — Optionally pre-fills checkout fields if you choose &ldquo;Save my details&rdquo;.</li>
           <li><strong>localStorage (cookie_consent_v1)</strong> — Records your cookie consent choice so the banner does not reappear.</li>
         </ul>
         <p>
@@ -112,7 +108,7 @@ export default function PrivacyPolicy({ onNavigate }) {
           For privacy-related inquiries or data requests:
         </p>
         <p>
-          Email: <a href="mailto:dimze@proton.me">dimze@proton.me</a>
+          Email: <code>dimze [at] proton [dot] me</code>
         </p>
       </section>
     </main>
