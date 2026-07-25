@@ -93,7 +93,7 @@ const PRODUCTS = [
     printTime: '17 mins',
     printTimeWithHandle: '40 mins',
     image: '/hex_flat.png',
-    images: ['/hex_flat.png', '/hex_2.png'],
+    images: ['/hex_flat.png', '/hex_full.png'],
     specs: {
       layerHeight: '0.20 mm',
       infill: '100%',
